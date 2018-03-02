@@ -4,9 +4,43 @@
 #include "canvas.hh"
 #include "cursor.hh"
 #include "screen.hh"
+#include "snapshots.hh"
+#include "webserver.hh"
+
 
 int main ( int argc, char **argv )
 {
+  SnapShots snapShots;
+
+  WebServer webServer( 1234 );
+
+  webServer.addPage( "/", [ &snapShots ] ( std::vector< std::string > args, std::ostream &out ) {
+      out << "<html>" << std::endl;
+      out << "<body>" << std::endl;
+      out << "<div width=\"100%\">" << std::endl;
+      out << "<h1 width=\"100%\" style=\"background-color: #ff8000\">Today</h1>" << std::endl;
+      for( const TimeStamp &timeStamp : snapShots.timeStamps( Date::today() ) )
+        out << "<img src=\"/snapshot?" + timeStamp.toQuery() + "\" width=\"33%\"></img>" << std::endl;
+      out << "</div>" << std::endl;
+      out << "<div width=\"100%\">" << std::endl;
+      out << "<h1 width=\"100%\" style=\"background-color: #ff8000\">Yesterday</h1>" << std::endl;
+      for( const TimeStamp &timeStamp : snapShots.timeStamps( Date::yesterday() ) )
+        out << "<img src=\"/snapshot?" + timeStamp.toQuery() + "\" width=\"33%\"></img>" << std::endl;
+      out << "</div>" << std::endl;
+      out << "</body>" << std::endl;
+      out << "</html>" << std::endl;
+      return true;
+    } );
+
+  webServer.addPage( "/snapshot", [ &snapShots ] ( std::vector< std::string > args, std::ostream &out ) {
+      TimeStamp timeStamp( args[ 0 ], args[ 1 ], args[ 2 ], args[ 3 ], args[ 4 ] );
+      if( !snapShots.exists( timeStamp ) )
+        return false;
+      std::ifstream png( snapShots.toFileName( timeStamp ), std::ios::binary );
+      out << png.rdbuf();
+      return true;
+    }, { "year", "month", "day", "hour", "minute" } );
+
   Screen screen;
 
   Cursor cursor( "data/draw.cur" );
@@ -22,7 +56,7 @@ int main ( int argc, char **argv )
   ColorButton orange( screen, 0, 5, canvas, 255, 128, 0 );
   ColorButton red( screen, 0, 6, canvas, 255, 0, 0 );
 
-  SnapShotButton snapShot( screen, 0, 7, canvas );
+  SnapShotButton snapShot( screen, 0, 7, canvas, snapShots );
   ClearButton clear( screen, 0, 8, canvas );
 
   screen.eventLoop();

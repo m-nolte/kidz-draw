@@ -1,0 +1,7 @@
+find_path(LIBMICROHTTPD_INCLUDE_DIR NAMES microhttpd.h)
+find_library(LIBMICROHTTPD_LIBRARY NAMES microhttpd)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Libmicrohttpd DEFAULT_MSG LIBMICROHTTPD_LIBRARY LIBMICROHTTPD_INCLUDE_DIR)
+
+mark_as_advanced(LIBMICROHTTPD_LIBRARY LIBMICROHTTPD_INCLUDE_DIR)
