@@ -10,15 +10,15 @@
 
 #include "../canvas.hh"
 #include "../screen.hh"
-#include "../surface.hh"
+#include "../texture.hh"
 
 
 // SnapShotButton
 // --------------
 
 class SnapShotButton
-: public ImageSurface,
-  public Touchable
+  : public Texture,
+    public Touchable
 {
   Canvas &canvas_;
 
@@ -40,10 +40,10 @@ class SnapShotButton
 
 public:
   SnapShotButton ( Screen &screen, int i, int j, Canvas &canvas )
-  : ImageSurface( "data/camera.png" ),
-    canvas_( canvas )
+    : Texture( screen, "data/camera.png" ),
+      canvas_( canvas )
   {
-    screen.registerTile( i, j, surface_, this );
+    screen.registerTile( i, j, texture_, this );
   }
 
   bool down ( int x, int y )

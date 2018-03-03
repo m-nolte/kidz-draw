@@ -11,11 +11,22 @@ function(add_inkscape_png)
   endforeach()
 endfunction()
 
+function(add_pen)
+  foreach(arg ${ARGN})
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${arg}.png
+      DEPENDS ${arg}.png
+      COMMAND ${ImageMagick_convert_EXECUTABLE}
+      ARGS "-format" "PNG32" "${arg}.png" "-alpha" "copy" "-channel" "A" "-negate" "-channel" "RGB" "-fx" "#ffffff" "${CMAKE_CURRENT_BINARY_DIR}/${arg}.png"
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      VERBATIM
+    )
+  endforeach()
+endfunction()
+
 add_inkscape_png(camera trash)
-add_custom_target(data-png ALL DEPENDS camera.png trash.png)
+add_pen(pen-small)
+add_custom_target(data-png ALL DEPENDS camera.png trash.png pen-small.png)
 
 configure_file(arrow.cur draw.cur COPYONLY)
 
-foreach(IMAGE pen-small.png)
-  configure_file(${IMAGE} ${IMAGE} COPYONLY)
-endforeach()

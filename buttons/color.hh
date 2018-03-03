@@ -5,27 +5,27 @@
 
 #include "../canvas.hh"
 #include "../screen.hh"
-#include "../surface.hh"
+#include "../texture.hh"
 
 
 // ColorButton
 // -----------
 
 class ColorButton
-: public CompatibleSurface,
-  public Touchable
+  : public Texture,
+    public Touchable
 {
   Canvas &canvas_;
   int r_, g_, b_;
 
 public:
   ColorButton ( Screen &screen, int i, int j, Canvas &canvas, int r, int g, int b )
-  : CompatibleSurface( screen, 120, 120 ),
-    canvas_( canvas ),
-    r_( r ), g_( g ), b_( b )
+    : Texture( screen, 120, 120, r, g, b ),
+      canvas_( canvas ),
+      r_( r ), g_( g ), b_( b )
   {
-    clear( mapRGB( r_, g_, b_ ) );
-    screen.registerTile( i, j, surface_, this );
+    //clear( mapRGB( r_, g_, b_ ) );
+    screen.registerTile( i, j, texture_, this );
   }
 
   bool down ( int x, int y )

@@ -4,20 +4,17 @@
 #include <SDL.h>
 
 #include "screen.hh"
+#include "texture.hh"
 
 
 // Canvas
 // ------
 
 class Canvas
-: public CompatibleSurface,
-  public Touchable
+  : public Texture,
+    public Touchable
 {
-  typedef ImageSurface PenMask;
-  typedef RGBASurface Pen;
-
-  PenMask penMask_;
-  Pen pen_;
+  Texture pen_;
 
   void paint ( int x, int y )
   {
@@ -26,25 +23,19 @@ class Canvas
 
 public:
   Canvas ( Screen &screen, int i, int j, int w, int h )
-  : CompatibleSurface( screen, w*120, h*120 ),
-    penMask_( "data/pen-small.png" ),
-    pen_( penMask_.width(), penMask_.height() )
+    : Texture( screen, w*120, h*120, Texture::Access::Target ),
+      pen_( screen, "data/pen-small.png" )
   {
-    pen_.enableAlphaBlending();
     clear();
     setColor( 0, 0, 0 );
-    screen.registerTiles( i, j, w, h, surface_, this );
+    screen.registerTiles( i, j, w, h, texture_, this );
   }
 
-  void clear () { CompatibleSurface::clear( mapRGB( 255, 255, 255 ) ); }
+  void clear () { Texture::clear( 255, 255, 255 ); }
 
   void setColor ( int r, int g, int b )
   {
-    PenMask::Pixels pixelsMask = penMask_.pixels();
-    Pen::Pixels pixels = pen_.pixels();
-    for( int y = 0; y < pixels.height(); ++y )
-      for( int x = 0; x < pixels.width(); ++x )
-        pixels( x, y ) = pixels.mapRGBA( r, g, b, 255 - (Uint8)pixelsMask( x, y ) );
+    pen_.setColorMod( r, g, b );
   }
 
   // Touchable

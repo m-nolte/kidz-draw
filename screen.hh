@@ -6,8 +6,6 @@
 
 #include <SDL.h>
 
-#include "surface.hh"
-
 // Touchable
 // ---------
 
@@ -20,26 +18,29 @@ struct Touchable
 };
 
 
+
 // Screen
 // ------
 
 class Screen
-: public Surface
 {
+  friend class Texture;
+
   struct Tile
   {
-    SDL_Surface *surface;
-    Touchable *touchable;
+    SDL_Texture *texture = nullptr;
+    Touchable *touchable = nullptr;
     SDL_Rect rect;
 
     Tile ()
-    : surface( nullptr ),
-      touchable( nullptr )
     {
       rect.y = rect.x = 0;
       rect.h = rect.w = 120;
     }
   };
+
+  SDL_Window *window_ = nullptr;
+  SDL_Renderer *renderer_ = nullptr;
 
   std::array< Tile, 16*9 > tiles_;
 
@@ -51,14 +52,32 @@ public:
   {
     if( SDL_Init( SDL_INIT_VIDEO ) != 0 )
     {
-      char *error = SDL_GetError();
+      const char *error = SDL_GetError();
       std::cerr << "Unable to initialize SDL: " << error << std::endl;
       exit( 1 );
     }
 
-    const Uint32 videoFlags = SDL_FULLSCREEN | SDL_HWSURFACE;
-    surface_ = SDL_SetVideoMode( 1920, 1080, 32, videoFlags );
-    //surface_ = SDL_SetVideoMode( 1366, 768, 32, videoFlags );
+    //SDL_CreateWindowAndRenderer( 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP, &window_, &renderer_ );
+    window_ = SDL_CreateWindow( "Kidz Draw", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP );
+    if( !window_ )
+    {
+      const char *error = SDL_GetError();
+      std::cerr << "Unable to create SDL window: " << error << std::endl;
+      SDL_Quit();
+      exit( 1 );
+    }
+
+    renderer_ = SDL_CreateRenderer( window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE );
+    if( !renderer_ )
+    {
+      const char *error = SDL_GetError();
+      std::cerr << "Unable to create SDL renderer: " << error << std::endl;
+      SDL_Quit();
+      exit( 1 );
+    }
+
+    SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "linear" );
+    SDL_RenderSetLogicalSize( renderer_, 1920, 1080 );
   }
 
   ~Screen ()
@@ -68,6 +87,9 @@ public:
 
   void draw ()
   {
+    SDL_SetRenderDrawColor( renderer_, 0, 0, 0, 255 );
+    SDL_RenderClear( renderer_ );
+
     SDL_Rect rect;
     rect.w = rect.h = 120;
     for( int j = 0; j < 9; ++j )
@@ -76,11 +98,12 @@ public:
       for( int i = 0; i < 16; ++i )
       {
         rect.x = i*120;
-        if( tile( i, j ).surface )
-          SDL_BlitSurface( tile( i, j ).surface, &tile( i, j ).rect, surface_, &rect );
+        if( tile( i, j ).texture )
+          SDL_RenderCopy( renderer_, tile( i, j ).texture, &tile( i, j ).rect, &rect );
       }
     }
-    SDL_UpdateRect( surface_, 0, 0, 0, 0 );
+
+    SDL_RenderPresent( renderer_ );
   }
 
   void eventLoop ()
@@ -130,6 +153,36 @@ public:
           }
           break;
 
+        case SDL_FINGERDOWN:
+          {
+            const int i = event.tfinger.x / 120;
+            const int j = event.tfinger.y / 120;
+            Touchable *touchable = tile( i, j ).touchable;
+            if( touchable )
+              redraw |= touchable->down( tile( i, j ).rect.x + event.tfinger.x - i*120, tile( i, j ).rect.y + event.tfinger.y - j*120 );
+          }
+          break;
+
+        case SDL_FINGERUP:
+          {
+            const int i = event.tfinger.x / 120;
+            const int j = event.tfinger.y / 120;
+            Touchable *touchable = tile( i, j ).touchable;
+            if( touchable )
+              redraw |= touchable->up( tile( i, j ).rect.x + event.tfinger.x - i*120, tile( i, j ).rect.y + event.tfinger.y - j*120 );
+          }
+          break;
+
+        case SDL_FINGERMOTION:
+          {
+            const int i = event.tfinger.x / 120;
+            const int j = event.tfinger.y / 120;
+            Touchable *touchable = tile( i, j ).touchable;
+            if( touchable )
+              redraw |= touchable->move( tile( i, j ).rect.x + event.tfinger.x - i*120, tile( i, j ).rect.y + event.tfinger.y - j*120, event.tfinger.dx, event.tfinger.dy );
+          }
+          break;
+
         case SDL_KEYDOWN:
           if( event.key.keysym.sym == SDLK_ESCAPE )
             return;
@@ -143,19 +196,19 @@ public:
     }
   }
 
-  void registerTile ( int i, int j, SDL_Surface *surface, Touchable *touchable, int x = 0, int y = 0 )
+  void registerTile ( int i, int j, SDL_Texture *texture, Touchable *touchable, int x = 0, int y = 0 )
   {
-    tile( i, j ).surface = surface;
+    tile( i, j ).texture = texture;
     tile( i, j ).touchable = touchable;
     tile( i, j ).rect.x = x;
     tile( i, j ).rect.y = y;
   }
 
-  void registerTiles ( int i, int j, int w, int h, SDL_Surface *surface, Touchable *touchable, int x = 0, int y = 0 )
+  void registerTiles ( int i, int j, int w, int h, SDL_Texture *texture, Touchable *touchable, int x = 0, int y = 0 )
   {
     for( int jj = 0; jj < h; ++jj )
       for( int ii = 0; ii < w; ++ii )
-        registerTile( i+ii, j+jj, surface, touchable, x+120*ii, y+120*jj );
+        registerTile( i+ii, j+jj, texture, touchable, x+120*ii, y+120*jj );
   }
 };
 

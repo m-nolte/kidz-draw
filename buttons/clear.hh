@@ -5,24 +5,24 @@
 
 #include "../canvas.hh"
 #include "../screen.hh"
-#include "../surface.hh"
+#include "../texture.hh"
 
 
 // ClearButton
 // -----------
 
 class ClearButton
-: public ImageSurface,
-  public Touchable
+  : public Texture,
+    public Touchable
 {
   Canvas &canvas_;
 
 public:
   ClearButton ( Screen &screen, int i, int j, Canvas &canvas )
-  : ImageSurface( "data/trash.png" ),
-    canvas_( canvas )
+    : Texture( screen, "data/trash.png" ),
+      canvas_( canvas )
   {
-    screen.registerTile( i, j, surface_, this );
+    screen.registerTile( i, j, texture_, this );
   }
 
   bool down ( int x, int y )

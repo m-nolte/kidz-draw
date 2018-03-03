@@ -2,14 +2,14 @@ cmake_minimum_required(VERSION 3.3)
 
 project(draw)
 
-find_package(SDL REQUIRED)
-find_package(SDL_image REQUIRED)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+find_package(SDL2 REQUIRED COMPONENTS image)
+find_package(ImageMagick REQUIRED COMPONENTS convert)
 
 add_subdirectory(data)
 
-include_directories(${SDL_INCLUDE_DIR})
-include_directories(${SDLIMAGE_INCLUDE_DIR})
+include_directories(${SDL2_INCLUDE_DIR})
 
 add_executable(draw draw.cc cursor.cc)
-target_link_libraries(draw ${SDL_LIBRARY})
-target_link_libraries(draw ${SDLIMAGE_LIBRARY})
+target_link_libraries(draw ${SDL2_LIBRARIES})
