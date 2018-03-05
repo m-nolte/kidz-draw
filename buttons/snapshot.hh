@@ -34,7 +34,7 @@ class SnapShotButton
       << std::setw( 2 ) << (tm->tm_mon+1) << "-"
       << std::setw( 2 ) << tm->tm_mday << "-at-"
       << std::setw( 2 ) << tm->tm_hour << "-"
-      << std::setw( 2 ) << tm->tm_min << ".bmp";
+      << std::setw( 2 ) << tm->tm_min << ".png";
     return s.str();
   }
 
@@ -48,7 +48,7 @@ public:
 
   bool down ( int x, int y )
   {
-    canvas_.saveBMP( fileName() );
+    canvas_.save( fileName() );
     return false;
   }
 };

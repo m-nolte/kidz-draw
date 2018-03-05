@@ -17,7 +17,8 @@ function(add_pen)
       OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${arg}.png
       DEPENDS ${arg}.png
       COMMAND ${ImageMagick_convert_EXECUTABLE}
-      ARGS "-format" "PNG32" "${arg}.png" "-alpha" "copy" "-channel" "A" "-negate" "-channel" "RGB" "-fx" "#ffffff" "${CMAKE_CURRENT_BINARY_DIR}/${arg}.png"
+      ARGS "${arg}.png" "-alpha" "copy" "-channel" "A" "-negate" "-channel"
+      "RGB" "-fx" "#ffffff" "png32:${CMAKE_CURRENT_BINARY_DIR}/${arg}.png"
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       VERBATIM
     )

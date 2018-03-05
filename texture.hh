@@ -1,9 +1,11 @@
 #ifndef TEXTURE_HH
 #define TEXTURE_HH
 
-#include <SDL.h>
-#include <SDL_image.h>
+#include <cstdint>
 
+#include <SDL.h>
+
+#include "png.hh"
 #include "screen.hh"
 
 // Texture
@@ -28,11 +30,21 @@ public:
   Texture ( const Screen &screen, const std::string &file )
     : renderer_( screen.renderer_ )
   {
-    SDL_Surface *surface = IMG_Load( file.c_str() );
-    texture_ = SDL_CreateTextureFromSurface( renderer_, surface );
-    width_ = surface->w;
-    height_ = surface->h;
-    SDL_FreeSurface( surface );
+    std::ifstream in( file );
+    png::input png_in( in );
+
+    auto info = png_in.read_info();
+    width_ = info.image_width();
+    height_ = info.image_height();
+
+    Uint32 format = (info.channels() == 4 ? SDL_PIXELFORMAT_ABGR8888 : SDL_PIXELFORMAT_BGR888);
+    texture_ = SDL_CreateTexture( renderer_, format, static_cast< int >( Access::Static ), width_, height_ );
+    if( info.channels() == 4 )
+      SDL_SetTextureBlendMode( texture_, SDL_BLENDMODE_BLEND );
+
+    const std::size_t pitch = info.channels()*width_;
+    auto image = png_in.read_image( pitch, height_ );
+    SDL_UpdateTexture( texture_, nullptr, image.get(), pitch );
   }
 
   Texture ( const Screen &screen, int width, int height, Access access = Access::Streaming )
@@ -82,6 +94,24 @@ public:
 
   int width () const { return width_; }
   int height () const { return height_; }
+
+  std::unique_ptr< std::uint8_t[] > pixels () const
+  {
+    std::unique_ptr< std::uint8_t[] > pixels( new std::uint8_t[ 4*width_*height_ ] );
+    SDL_SetRenderTarget( renderer_, texture_ );
+    SDL_RenderReadPixels( renderer_, nullptr, SDL_PIXELFORMAT_ABGR8888, pixels.get(), 4*width_ );
+    SDL_SetRenderTarget( renderer_, nullptr );
+    return pixels;
+  }
+
+  void save ( const std::string &file )
+  {
+    std::ofstream out( file );
+    png::output png_out( out );
+    png_out.write_info( width_, height_, 8, png::color_type_t::rgb_alpha );
+    png_out.write_image( pixels(), 4*width_, height_, true );
+    png_out.write_end();
+  }
 
   void saveBMP ( const std::string &fileName )
   {
