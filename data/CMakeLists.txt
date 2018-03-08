@@ -1,10 +1,10 @@
-function(add_inkscape_png)
+function(add_svg_png)
   foreach(arg ${ARGN})
     add_custom_command(
       OUTPUT ${arg}.png
       DEPENDS ${arg}.svg
-      COMMAND inkscape
-      ARGS --export-width=120 --export-height=120 --export-png=${CMAKE_CURRENT_BINARY_DIR}/${arg}.png ${arg}.svg
+      COMMAND ${ImageMagick_convert_EXECUTABLE}
+      ARGS "-size" "120x120" "-background" "transparent" "${arg}.svg" "png32:${CMAKE_CURRENT_BINARY_DIR}/${arg}.png"
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       VERBATIM
     )
@@ -25,7 +25,7 @@ function(add_pen)
   endforeach()
 endfunction()
 
-add_inkscape_png(camera trash)
+add_svg_png(camera trash)
 add_pen(pen-small)
 add_custom_target(data-png ALL DEPENDS camera.png trash.png pen-small.png)
 
