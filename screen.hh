@@ -186,6 +186,11 @@ public:
         case SDL_KEYDOWN:
           if( event.key.keysym.sym == SDLK_ESCAPE )
             return;
+          break;
+
+        case SDL_WINDOWEVENT:
+          redraw |= true;
+          break;
         }
       }
 
