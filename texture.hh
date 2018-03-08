@@ -3,6 +3,9 @@
 
 #include <cstdint>
 
+#include <fstream>
+#include <sstream>
+
 #include <SDL.h>
 
 #include "png.hh"
@@ -31,6 +34,26 @@ public:
     : renderer_( screen.renderer_ )
   {
     std::ifstream in( file );
+    png::input png_in( in );
+
+    auto info = png_in.read_info();
+    width_ = info.image_width();
+    height_ = info.image_height();
+
+    Uint32 format = (info.channels() == 4 ? SDL_PIXELFORMAT_ABGR8888 : SDL_PIXELFORMAT_BGR888);
+    texture_ = SDL_CreateTexture( renderer_, format, static_cast< int >( Access::Static ), width_, height_ );
+    if( info.channels() == 4 )
+      SDL_SetTextureBlendMode( texture_, SDL_BLENDMODE_BLEND );
+
+    const std::size_t pitch = info.channels()*width_;
+    auto image = png_in.read_image( pitch, height_ );
+    SDL_UpdateTexture( texture_, nullptr, image.get(), pitch );
+  }
+
+  Texture ( const Screen &screen, const void *data, std::size_t size )
+    : renderer_( screen.renderer_ )
+  {
+    std::istringstream in( std::string( static_cast< const char * >( data ), size ) );
     png::input png_in( in );
 
     auto info = png_in.read_info();

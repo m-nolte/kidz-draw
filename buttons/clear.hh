@@ -8,6 +8,10 @@
 #include "../texture.hh"
 
 
+extern const std::uint8_t trash_data[];
+extern const std::size_t trash_size;
+
+
 // ClearButton
 // -----------
 
@@ -19,7 +23,7 @@ class ClearButton
 
 public:
   ClearButton ( Screen &screen, int i, int j, Canvas &canvas )
-    : Texture( screen, "data/trash.png" ),
+    : Texture( screen, trash_data, trash_size ),
       canvas_( canvas )
   {
     screen.registerTile( i, j, texture_, this );

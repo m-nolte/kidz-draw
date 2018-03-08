@@ -7,6 +7,10 @@
 #include "texture.hh"
 
 
+extern const std::uint8_t pen_small_data[];
+extern const std::size_t pen_small_size;
+
+
 // Canvas
 // ------
 
@@ -24,7 +28,7 @@ class Canvas
 public:
   Canvas ( Screen &screen, int i, int j, int w, int h )
     : Texture( screen, w*120, h*120, Texture::Access::Target ),
-      pen_( screen, "data/pen-small.png" )
+      pen_( screen, pen_small_data, pen_small_size )
   {
     clear();
     setColor( 0, 0, 0 );

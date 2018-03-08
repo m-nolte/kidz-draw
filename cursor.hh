@@ -8,6 +8,9 @@ class Cursor
 {
 public:
   explicit Cursor ( const std::string &fileName );
+  explicit Cursor ( const std::vector< std::string > &lines );
+  explicit Cursor ( std::istream &input );
+
   ~Cursor ();
 
 private:

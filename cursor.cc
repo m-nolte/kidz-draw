@@ -2,6 +2,7 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include <SDL.h>
@@ -9,44 +10,17 @@
 #include "cursor.hh"
 
 
-// Implementation of Cursor
-// ------------------------
-
-Cursor::Cursor ( const std::string &fileName )
+static SDL_Cursor *loadCursor ( const std::vector< std::string > &lines )
 {
-  std::array< int, 2 > size = { { 0, 0 } };
+  std::array< int, 2 > size = { { 0, static_cast< int >( lines.size() ) } };
 
-  std::ifstream fin( fileName );
-  if( !fin )
-  {
-    std::cerr << "Unable to open '" << fileName << "'." << std::endl;
-    exit( 1 );
-  }
-
-  std::vector< std::string > lines;
-  while( true )
-  {
-    std::string line;
-    std::getline( fin, line );
-    if( !fin.good() )
-      break;
-
-    const std::size_t cpos = line.find( '#' );
-    if( cpos == 0 )
-      continue;
-    if( cpos != line.npos )
-      line = line.substr( 0, line.rfind( ' ', cpos ) );
-
-    lines.push_back( line );
+  for( const std::string &line : lines )
     size[ 0 ] = std::max( size[ 0 ], int( line.length() ) );
-    ++size[ 1 ];
-  }
-  fin.close();
 
   size[ 0 ] = (size[ 0 ] + 7) & ~7;
   const int bytePerLine = size[ 0 ] / 8;
-  Uint8 *data = new Uint8[ size[ 1 ] * bytePerLine ];
-  Uint8 *mask = new Uint8[ size[ 1 ] * bytePerLine ];
+  std::unique_ptr< Uint8[] > data( new Uint8[ size[ 1 ] * bytePerLine ] );
+  std::unique_ptr< Uint8[] > mask( new Uint8[ size[ 1 ] * bytePerLine ] );
 
   bool hasHotSpot = false;
   std::array< int, 2 > hotSpot = { { 0, 0 } };
@@ -89,9 +63,9 @@ Cursor::Cursor ( const std::string &fileName )
 
         default:
           if( (int( c ) & 0xff) < ' ' )
-            std::cerr << "Error in " << fileName << ": Invalid control character (" << int( c ) << ")." << std::endl;
+            std::cerr << "Error in cursor: Invalid control character (" << int( c ) << ")." << std::endl;
           else
-            std::cerr << "Error in " << fileName << ": Invalid character (" << c << ")." << std::endl;
+            std::cerr << "Error in cursor: Invalid character (" << c << ")." << std::endl;
           exit( 1 );
         }
 
@@ -99,7 +73,7 @@ Cursor::Cursor ( const std::string &fileName )
         {
           if( hasHotSpot )
           {
-            std::cerr << "Error in " << fileName << ": Multiple hot spots." << std::endl;
+            std::cerr << "Error in cursor: Multiple hot spots." << std::endl;
             exit( 1 );
           }
           else
@@ -112,16 +86,63 @@ Cursor::Cursor ( const std::string &fileName )
 
   if( !hasHotSpot )
   {
-    std::cerr << fileName << ": No hot spot defined, using (0,0)." << std::endl;
+    std::cerr << "Error in cursor: No hot spot defined, using (0,0)." << std::endl;
     for( int i = 0; i < 2; ++i )
       hotSpot[ i ] = (hotSpot[ i ] >= size[ i ] ? 0 : hotSpot[ i ]);
   }
 
-  cursor_ = SDL_CreateCursor( data, mask, size[ 0 ], size[ 1 ], hotSpot[ 0 ], hotSpot[ 1 ] );
-
-  delete[] mask;
-  delete[] data;
+  return SDL_CreateCursor( data.get(), mask.get(), size[ 0 ], size[ 1 ], hotSpot[ 0 ], hotSpot[ 1 ] );
 }
+
+
+static SDL_Cursor *loadCursor ( std::istream &fin )
+{
+  std::vector< std::string > lines;
+  while( true )
+  {
+    std::string line;
+    std::getline( fin, line );
+    if( !fin.good() )
+      break;
+
+    const std::size_t cpos = line.find( '#' );
+    if( cpos == 0 )
+      continue;
+    if( cpos != line.npos )
+      line = line.substr( 0, line.rfind( ' ', cpos ) );
+
+    lines.push_back( std::move( line ) );
+  }
+
+  return loadCursor( lines );
+}
+
+
+
+// Implementation of Cursor
+// ------------------------
+
+Cursor::Cursor ( const std::string &fileName )
+{
+  std::ifstream fin( fileName );
+  if( !fin )
+  {
+    std::cerr << "Unable to open '" << fileName << "'." << std::endl;
+    exit( 1 );
+  }
+
+  cursor_ = loadCursor( fin );
+}
+
+
+Cursor::Cursor ( const std::vector< std::string > &lines )
+  : cursor_( loadCursor( lines ) )
+{}
+
+
+Cursor::Cursor ( std::istream &input )
+  : cursor_( loadCursor( input ) )
+{}
 
 
 Cursor::~Cursor ()

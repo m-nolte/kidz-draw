@@ -7,6 +7,9 @@
 #include "snapshots.hh"
 #include "webserver.hh"
 
+extern const char arrow_cursor[];
+extern const char empty_cursor[];
+
 
 int main ( int argc, char **argv )
 {
@@ -43,7 +46,9 @@ int main ( int argc, char **argv )
 
   Screen screen;
 
-  Cursor cursor( "data/draw.cur" );
+  const bool hasTouchScreen = (SDL_GetNumTouchDevices() > 0);
+  std::istringstream cursorIn( hasTouchScreen ? empty_cursor : arrow_cursor );
+  Cursor cursor( cursorIn );
   setCursor( cursor );
 
   Canvas canvas( screen, 1, 0, 15, 9 );
