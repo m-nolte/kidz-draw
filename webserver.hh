@@ -22,7 +22,7 @@ public:
   explicit WebServer ( unsigned short port )
     : daemon_( MHD_USE_SELECT_INTERNALLY, port,
                [ this ] ( httpd::Connection connection, const char *url, const char *method, const char *version, const char *upload_data, size_t *upload_data_size, void **con_cls ) -> int {
-          this->accept( connection, url, method, version, upload_data, upload_data_size, con_cls );
+          return this->accept( connection, url, method, version, upload_data, upload_data_size, con_cls );
         } )
   {}
 
