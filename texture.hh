@@ -127,6 +127,20 @@ public:
     return pixels;
   }
 
+  void load ( const std::string &file )
+  {
+    std::ifstream in( file );
+    png::input png_in( in );
+
+    auto info = png_in.read_info();
+    if( (width_ == info.image_width()) && (height_ == info.image_height()) )
+    {
+      const std::size_t pitch = info.channels()*width_;
+      auto image = png_in.read_image( pitch, height_ );
+      SDL_UpdateTexture( texture_, nullptr, image.get(), pitch );
+    }
+  }
+
   void save ( const std::string &file )
   {
     std::ofstream out( file );

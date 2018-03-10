@@ -2,6 +2,7 @@
 #define SCREEN_HH
 
 #include <array>
+#include <functional>
 #include <iostream>
 
 #include <SDL.h>
@@ -44,6 +45,10 @@ class Screen
 
   std::array< Tile, 16*9 > tiles_;
 
+public:
+  Uint32 lambdaEvent = -1;
+
+private:
   const Tile &tile ( int i, int j ) const { return tiles_[ j*16 + i ]; }
   Tile &tile ( int i, int j ) { return tiles_[ j*16 + i ]; }
 
@@ -78,6 +83,8 @@ public:
 
     SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "linear" );
     SDL_RenderSetLogicalSize( renderer_, 1920, 1080 );
+
+    lambdaEvent = SDL_RegisterEvents( 1 );
   }
 
   ~Screen ()
@@ -115,6 +122,13 @@ public:
       bool redraw = false;
       while( SDL_PollEvent( &event ) )
       {
+        if( event.type == lambdaEvent )
+        {
+          std::function< bool () > *lambda = static_cast< std::function< bool () > * >( event.user.data1 );
+          redraw |= (*lambda)();
+          delete lambda;
+        }
+
         switch( event.type )
         {
         case SDL_QUIT:

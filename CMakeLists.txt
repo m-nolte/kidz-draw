@@ -33,9 +33,19 @@ endfunction()
 
 add_embedded(${CMAKE_CURRENT_BINARY_DIR}/data/camera.png camera camera.cc)
 add_embedded(${CMAKE_CURRENT_BINARY_DIR}/data/trash.png trash trash.cc)
+add_embedded(${CMAKE_CURRENT_BINARY_DIR}/data/palette.png palette palette.cc)
 add_embedded(${CMAKE_CURRENT_BINARY_DIR}/data/pen-small.png pen_small pen-small.cc)
 
-add_executable(kidz-draw draw.cc cursor.cc snapshots.cc mycursor.cc camera.cc trash.cc pen-small.cc)
+add_executable(kidz-draw
+  draw.cc
+  cursor.cc
+  snapshots.cc
+  mycursor.cc
+  camera.cc
+  trash.cc
+  palette.cc
+  pen-small.cc
+)
 target_link_libraries(kidz-draw ${SDL2_LIBRARIES})
 target_link_libraries(kidz-draw ${PNG_LIBRARY})
 target_link_libraries(kidz-draw ${LIBMICROHTTPD_LIBRARY})
