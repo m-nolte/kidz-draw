@@ -53,6 +53,9 @@ private:
   Tile &tile ( int i, int j ) { return tiles_[ j*16 + i ]; }
 
 public:
+  static constexpr int width () { return 1920; }
+  static constexpr int height () { return 1080; }
+
   Screen ()
   {
     if( SDL_Init( SDL_INIT_VIDEO ) != 0 )
@@ -82,7 +85,7 @@ public:
     }
 
     SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "linear" );
-    SDL_RenderSetLogicalSize( renderer_, 1920, 1080 );
+    SDL_RenderSetLogicalSize( renderer_, width(), height() );
 
     lambdaEvent = SDL_RegisterEvents( 1 );
   }
@@ -169,31 +172,42 @@ public:
 
         case SDL_FINGERDOWN:
           {
-            const int i = event.tfinger.x / 120;
-            const int j = event.tfinger.y / 120;
+            const int x = event.tfinger.x * width();
+            const int y = event.tfinger.y * height();
+
+            const int i = x / 120;
+            const int j = y / 120;
             Touchable *touchable = tile( i, j ).touchable;
             if( touchable )
-              redraw |= touchable->down( tile( i, j ).rect.x + event.tfinger.x - i*120, tile( i, j ).rect.y + event.tfinger.y - j*120 );
+              redraw |= touchable->down( tile( i, j ).rect.x + x - i*120, tile( i, j ).rect.y + y - j*120 );
           }
           break;
 
         case SDL_FINGERUP:
           {
-            const int i = event.tfinger.x / 120;
-            const int j = event.tfinger.y / 120;
+            const int x = event.tfinger.x * width();
+            const int y = event.tfinger.y * height();
+
+            const int i = x / 120;
+            const int j = y / 120;
             Touchable *touchable = tile( i, j ).touchable;
             if( touchable )
-              redraw |= touchable->up( tile( i, j ).rect.x + event.tfinger.x - i*120, tile( i, j ).rect.y + event.tfinger.y - j*120 );
+              redraw |= touchable->up( tile( i, j ).rect.x + x - i*120, tile( i, j ).rect.y + y - j*120 );
           }
           break;
 
         case SDL_FINGERMOTION:
           {
-            const int i = event.tfinger.x / 120;
-            const int j = event.tfinger.y / 120;
+            const int x = event.tfinger.x * width();
+            const int y = event.tfinger.y * height();
+            const int dx = event.tfinger.dx * width();
+            const int dy = event.tfinger.dy * height();
+
+            const int i = x / 120;
+            const int j = y / 120;
             Touchable *touchable = tile( i, j ).touchable;
             if( touchable )
-              redraw |= touchable->move( tile( i, j ).rect.x + event.tfinger.x - i*120, tile( i, j ).rect.y + event.tfinger.y - j*120, event.tfinger.dx, event.tfinger.dy );
+              redraw |= touchable->move( tile( i, j ).rect.x + x - i*120, tile( i, j ).rect.y + y - j*120, dx, dy );
           }
           break;
 
