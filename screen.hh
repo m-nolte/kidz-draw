@@ -4,6 +4,8 @@
 #include <array>
 #include <functional>
 #include <iostream>
+#include <memory>
+#include <vector>
 
 #include <SDL.h>
 
@@ -119,6 +121,7 @@ public:
   void eventLoop ()
   {
     draw();
+    std::vector< std::unique_ptr< std::function< bool () > > > lambdaTrashBin;
     while( true )
     {
       SDL_Event event;
@@ -129,7 +132,7 @@ public:
         {
           std::function< bool () > *lambda = static_cast< std::function< bool () > * >( event.user.data1 );
           redraw |= (*lambda)();
-          delete lambda;
+          lambdaTrashBin.emplace_back( lambda );
         }
 
         switch( event.type )
@@ -226,6 +229,7 @@ public:
         draw();
       else
         SDL_Delay( 1 );
+      lambdaTrashBin.clear();
     }
   }
 
