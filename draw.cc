@@ -93,8 +93,9 @@ int main ( int argc, char **argv )
       SDL_Event event;
       SDL_memset( &event, 0, sizeof( event ) );
       event.type = screen.lambdaEvent;
-      event.user.data1 = new std::function< bool () >( [ &snapShots, &canvas, timeStamp ] () -> bool {
-          canvas.load( snapShots.toFileName( timeStamp ) );
+      event.user.data1 = new std::function< bool () >( [ &screen, &snapShots, &canvas, timeStamp ] () -> bool {
+          //canvas.load( snapShots.toFileName( timeStamp ) );
+          canvas.blit( 0, 0, Texture( screen, snapShots.toFileName( timeStamp ) ) );
           return true;
         } );
       SDL_PushEvent( &event );
