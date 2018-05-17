@@ -146,7 +146,7 @@ public:
     std::ofstream out( file );
     png::output png_out( out );
     png_out.write_info( width_, height_, 8, png::color_type_t::rgb_alpha );
-    png_out.write_image( pixels(), 4*width_, height_, true );
+    png_out.write_image( pixels(), 4*width_, height_ );
     png_out.write_end();
   }
 
