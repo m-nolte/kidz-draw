@@ -77,12 +77,31 @@ std::vector< TimeStamp > SnapShots::timeStamps ( const Date &date ) const
 
 std::string SnapShots::toFileName ( const TimeStamp &timeStamp ) const
 {
+  return "snapshot-" + to_string( timeStamp ) + ".png";
+}
+
+
+
+// Implementation of to_string
+// ---------------------------
+
+std::string to_string ( const Date &date )
+{
   std::ostringstream s;
-  s << "snapshot-" << std::setfill( '0' )
-    << std::setw( 4 ) << timeStamp.date.year << "-"
-    << std::setw( 2 ) << timeStamp.date.month << "-"
-    << std::setw( 2 ) << timeStamp.date.day << "-at-"
+  s << std::setfill( '0' )
+    << std::setw( 4 ) << date.year << "-"
+    << std::setw( 2 ) << date.month << "-"
+    << std::setw( 2 ) << date.day;
+  return s.str();
+}
+
+
+std::string to_string ( const TimeStamp &timeStamp )
+{
+  std::ostringstream s;
+  s << to_string( timeStamp.date ) << "-at-"
+    << std::setfill( '0' )
     << std::setw( 2 ) << timeStamp.hour << "-"
-    << std::setw( 2 ) << timeStamp.minute << ".png";
+    << std::setw( 2 ) << timeStamp.minute;
   return s.str();
 }

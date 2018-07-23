@@ -1,3 +1,5 @@
+#include <regex>
+
 #include "buttons/clear.hh"
 #include "buttons/color.hh"
 #include "buttons/snapshot.hh"
@@ -13,6 +15,141 @@ extern const char empty_cursor[];
 extern const std::uint8_t palette_data[];
 extern const std::size_t palette_size;
 
+
+
+// GalleryResource
+// ---------------
+
+class GalleryResource
+  : public MicroWebServer::DynamicStringResource
+{
+  const SnapShots &snapShots_;
+
+public:
+  explicit GalleryResource ( const SnapShots &snapShots )
+    : MicroWebServer::DynamicStringResource( "text/html" ),
+      snapShots_( snapShots )
+  {}
+
+  void getContent ( MicroWebServer::Arguments arguments, std::ostream &content ) const override
+  {
+    using std::to_string;
+
+    content << "<html>" << std::endl;
+    content << "<body>" << std::endl;
+    content << "<div style=\"width: 100%; background-color: #ff8000;\">" << std::endl;
+    content << "<h1 style=\"margin: 5px;\">Today</h1>" << std::endl;
+    content << "</div>" << std::endl;
+    content << "<div style=\"width: 100%; display: flex; flex-direction: row; flex-wrap: wrap; padding: 0.5%;\">" << std::endl;
+    for( const TimeStamp &timeStamp : snapShots_.timeStamps( Date::today() ) )
+    {
+      content << "<div style=\"width: 33%; position: relative; float: left\">" << std::endl;
+      content << "<img src=\"/snapshots/" + to_string( timeStamp ) + ".png\" style=\"width: 100%;\"></img>" << std::endl;
+      content << "<a href=\"/edit?" + timeStamp.toQuery() + "\"><img src=\"/palette.png\" style=\"width: 10%; position: absolute; bottom: 8px; right: 8px;\"></img></a>" << std::endl;
+      content << "</div>" << std::endl;
+    }
+    content << "</div>" << std::endl;
+    content << "<div style=\"width: 100%; background-color: #ff8000;\">" << std::endl;
+    content << "<h1 style=\"margin: 5px;\">Yesterday</h1>" << std::endl;
+    content << "</div>" << std::endl;
+    content << "<div style=\"width: 100%; display: flex; flex-direction: row; flex-wrap: wrap; padding: 0.5%;\">" << std::endl;
+    for( const TimeStamp &timeStamp : snapShots_.timeStamps( Date::yesterday() ) )
+    {
+      content << "<div style=\"width: 33%; position: relative; float: left\">" << std::endl;
+      content << "<img src=\"/snapshots/" + to_string( timeStamp ) + ".png\" style=\"width: 100%;\"></img>" << std::endl;
+      content << "<a href=\"/edit?" + timeStamp.toQuery() + "\"><img src=\"/palette.png\" style=\"width: 10%; position: absolute; bottom: 8px; right: 8px;\"></img></a>" << std::endl;
+      content << "</div>" << std::endl;
+    }
+    content << "</div>" << std::endl;
+    content << "</body>" << std::endl;
+    content << "</html>" << std::endl;
+  }
+};
+
+
+// SnapShotsResource
+// -----------------
+
+class SnapShotsResource
+  : public MicroWebServer::Resource
+{
+  const SnapShots &snapShots_;
+  std::regex pattern_;
+
+public:
+  explicit SnapShotsResource ( const SnapShots &snapShots )
+    : snapShots_( snapShots ),
+      pattern_( "/([0-9]{4})-([0-9]{2})-([0-9]{2})-at-([0-9]{2})-([0-9]{2})[.]png" )
+  {}
+
+  std::shared_ptr< Resource > operator[] ( std::string url ) override
+  {
+    std::smatch subMatch;
+    if( !std::regex_match( url, subMatch, pattern_ ) )
+      return nullptr;
+
+    const TimeStamp timeStamp( subMatch[ 1 ].str(), subMatch[ 2 ].str(), subMatch[ 3 ].str(), subMatch[ 4 ].str(), subMatch[ 5 ].str() );
+    if( !snapShots_.exists( timeStamp ) )
+      return nullptr;
+
+    return std::make_shared< MicroWebServer::FileResource >( snapShots_.toFileName( timeStamp ), "image/png" );
+  }
+};
+
+
+
+// EditResource
+// ------------
+
+class EditResource
+  : public MicroWebServer::Resource
+{
+  const SnapShots &snapShots_;
+  Screen &screen_;
+  Canvas &canvas_;
+
+public:
+  explicit EditResource ( const SnapShots &snapShots, Screen &screen, Canvas &canvas )
+    : snapShots_( snapShots ), screen_( screen ), canvas_( canvas )
+  {}
+
+
+  std::unique_ptr< httpd::RequestHandler > getGetHandler ( httpd::Connection connection ) const override
+  {
+    using std::to_string;
+
+    MicroWebServer::Arguments arguments( connection );
+    const TimeStamp timeStamp( arguments[ "year" ], arguments[ "month" ], arguments[ "day" ], arguments[ "hour" ], arguments[ "minute" ] );
+    if( !snapShots_.exists( timeStamp ) )
+      return httpd::makeNotFoundRequestHandler();
+
+    SDL_Event event;
+    SDL_memset( &event, 0, sizeof( event ) );
+    event.type = screen_.lambdaEvent;
+    event.user.data1 = new std::function< bool () >( [ this, timeStamp ] () -> bool {
+        //canvas.load( snapShots.toFileName( timeStamp ) );
+        canvas_.blit( 0, 0, Texture( screen_, snapShots_.toFileName( timeStamp ) ) );
+        return true;
+      } );
+    SDL_PushEvent( &event );
+
+    std::ostringstream content;
+    content << "<html>" << std::endl;
+    content << "<body>" << std::endl;
+    content << "<div style=\"width: 100%; background-color: #ff8000;\">" << std::endl;
+    content << "<h1 style=\"margin: 5px;\">Image loaded:</h1>" << std::endl;
+    content << "</div>" << std::endl;
+    content << "<img src=\"/snapshots/" + to_string( timeStamp ) + ".png\" style=\"width: 100%;\"></img>" << std::endl;
+    content << "</body>" << std::endl;
+    content << "</html>" << std::endl;
+    return httpd::makeContentRequestHandler( "text/html", content.str() );
+  }
+};
+
+
+
+// main
+// ----
 
 int main ( int argc, char **argv )
 {
@@ -37,79 +174,15 @@ int main ( int argc, char **argv )
   SnapShotButton snapShot( screen, 0, 7, canvas, snapShots );
   ClearButton clear( screen, 0, 8, canvas );
 
-  WebServer webServer( 1234 );
+  auto webRoot = std::make_shared< MicroWebServer::MapResource >();
 
-  webServer.addPage( "/", [ &snapShots ] ( std::vector< std::string > args, std::ostream &out ) {
-      out << "<html>" << std::endl;
-      out << "<body>" << std::endl;
-      out << "<div style=\"width: 100%; background-color: #ff8000;\">" << std::endl;
-      out << "<h1 style=\"margin: 5px;\">Today</h1>" << std::endl;
-      out << "</div>" << std::endl;
-      out << "<div style=\"width: 100%; display: flex; flex-direction: row; flex-wrap: wrap; padding: 0.5%;\">" << std::endl;
-      for( const TimeStamp &timeStamp : snapShots.timeStamps( Date::today() ) )
-      {
-        out << "<div style=\"width: 33%; position: relative; float: left\">" << std::endl;
-        out << "<img src=\"/snapshot?" + timeStamp.toQuery() + "\" style=\"width: 100%;\"></img>" << std::endl;
-        out << "<a href=\"/edit?" + timeStamp.toQuery() + "\"><img src=\"/palette.png\" style=\"width: 10%; position: absolute; bottom: 8px; right: 8px;\"></img></a>" << std::endl;
-        out << "</div>" << std::endl;
-      }
-      out << "</div>" << std::endl;
-      out << "<div style=\"width: 100%; background-color: #ff8000;\">" << std::endl;
-      out << "<h1 style=\"margin: 5px;\">Yesterday</h1>" << std::endl;
-      out << "</div>" << std::endl;
-      out << "<div style=\"width: 100%; display: flex; flex-direction: row; flex-wrap: wrap; padding: 0.5%;\">" << std::endl;
-      for( const TimeStamp &timeStamp : snapShots.timeStamps( Date::yesterday() ) )
-      {
-        out << "<div style=\"width: 33%; position: relative; float: left\">" << std::endl;
-        out << "<img src=\"/snapshot?" + timeStamp.toQuery() + "\" style=\"width: 100%;\"></img>" << std::endl;
-        out << "<a href=\"/edit?" + timeStamp.toQuery() + "\"><img src=\"/palette.png\" style=\"width: 10%; position: absolute; bottom: 8px; right: 8px;\"></img></a>" << std::endl;
-        out << "</div>" << std::endl;
-      }
-      out << "</div>" << std::endl;
-      out << "</body>" << std::endl;
-      out << "</html>" << std::endl;
-      return true;
-    } );
+  webRoot->add( "/", std::make_shared< MicroWebServer::RedirectResource >( "gallery" ) );
+  webRoot->add( "/gallery", std::make_shared< GalleryResource >( snapShots ) );
+  webRoot->add( "/snapshots", std::make_shared< SnapShotsResource >( snapShots ) );
+  webRoot->add( "/edit", std::make_shared< EditResource >( snapShots, screen, canvas ) );
+  webRoot->add( "/palette.png", std::make_shared< MicroWebServer::StaticDataResource >( palette_data, palette_size, "image/png" ) );
 
-  webServer.addPage( "/palette.png", [] ( std::vector< std::string > args, std::ostream &out ) {
-      out.write( reinterpret_cast< const char * >( palette_data ), palette_size );
-      return true;
-    } );
-
-  webServer.addPage( "/snapshot", [ &snapShots ] ( std::vector< std::string > args, std::ostream &out ) {
-      TimeStamp timeStamp( args[ 0 ], args[ 1 ], args[ 2 ], args[ 3 ], args[ 4 ] );
-      if( !snapShots.exists( timeStamp ) )
-        return false;
-      std::ifstream png( snapShots.toFileName( timeStamp ), std::ios::binary );
-      out << png.rdbuf();
-      return true;
-    }, { "year", "month", "day", "hour", "minute" } );
-
-  webServer.addPage( "/edit", [ &screen, &snapShots, &canvas ] ( std::vector< std::string > args, std::ostream &out ) {
-      TimeStamp timeStamp( args[ 0 ], args[ 1 ], args[ 2 ], args[ 3 ], args[ 4 ] );
-      if( !snapShots.exists( timeStamp ) )
-        return false;
-
-      SDL_Event event;
-      SDL_memset( &event, 0, sizeof( event ) );
-      event.type = screen.lambdaEvent;
-      event.user.data1 = new std::function< bool () >( [ &screen, &snapShots, &canvas, timeStamp ] () -> bool {
-          //canvas.load( snapShots.toFileName( timeStamp ) );
-          canvas.blit( 0, 0, Texture( screen, snapShots.toFileName( timeStamp ) ) );
-          return true;
-        } );
-      SDL_PushEvent( &event );
-
-      out << "<html>" << std::endl;
-      out << "<body>" << std::endl;
-      out << "<div style=\"width: 100%; background-color: #ff8000;\">" << std::endl;
-      out << "<h1 style=\"margin: 5px;\">Image loaded:</h1>" << std::endl;
-      out << "</div>" << std::endl;
-      out << "<img src=\"/snapshot?" + timeStamp.toQuery() + "\" style=\"width: 100%;\"></img>" << std::endl;
-      out << "</body>" << std::endl;
-      out << "</html>" << std::endl;
-      return true;
-    }, { "year", "month", "day", "hour", "minute" } );
+  MicroWebServer::WebServer webServer( 1234, webRoot );
 
   screen.eventLoop();
 

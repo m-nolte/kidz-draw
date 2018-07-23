@@ -181,4 +181,12 @@ private:
   mutable std::mutex mutex_;
 };
 
+
+
+// to_string
+// ---------
+
+std::string to_string ( const Date &date );
+std::string to_string ( const TimeStamp &timeStamp );
+
 #endif // #ifndef SNAPSHOTS_HH
