@@ -2,7 +2,6 @@
 #define SCREEN_HH
 
 #include <array>
-#include <functional>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -28,6 +27,26 @@ struct Touchable
 class Screen
 {
   friend class Texture;
+
+  struct Lambda
+  {
+    virtual ~Lambda () = default;
+    virtual bool operator() () = 0;
+  };
+
+  template< class F >
+  struct LambdaWrapper
+    : public Lambda
+  {
+    explicit LambdaWrapper ( F f )
+      : f_( std::move( f ) )
+    {}
+
+    bool operator() () override { return f_(); }
+
+  private:
+    F f_;
+  };
 
   struct Tile
   {
@@ -121,7 +140,7 @@ public:
   void eventLoop ()
   {
     draw();
-    std::vector< std::unique_ptr< std::function< bool () > > > lambdaTrashBin;
+    std::vector< std::unique_ptr< Lambda > > lambdaTrashBin;
     while( true )
     {
       SDL_Event event;
@@ -130,7 +149,7 @@ public:
       {
         if( event.type == lambdaEvent )
         {
-          std::function< bool () > *lambda = static_cast< std::function< bool () > * >( event.user.data1 );
+          Lambda *lambda = static_cast< Lambda * >( event.user.data1 );
           redraw |= (*lambda)();
           lambdaTrashBin.emplace_back( lambda );
         }
@@ -239,6 +258,16 @@ public:
     tile( i, j ).touchable = touchable;
     tile( i, j ).rect.x = x;
     tile( i, j ).rect.y = y;
+  }
+
+  template< class F, std::enable_if_t< std::is_same< decltype( std::declval< F & >()() ), bool >::value, int > = 0 >
+  void pushLambdaEvent ( F f )
+  {
+    SDL_Event event;
+    SDL_memset( &event, 0, sizeof( event ) );
+    event.type = lambdaEvent;
+    event.user.data1 = new LambdaWrapper< F >( std::move( f ) );
+    SDL_PushEvent( &event );
   }
 
   void registerTiles ( int i, int j, int w, int h, SDL_Texture *texture, Touchable *touchable, int x = 0, int y = 0 )

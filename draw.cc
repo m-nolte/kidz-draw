@@ -1,3 +1,4 @@
+#include <future>
 #include <regex>
 
 #include "buttons/clear.hh"
@@ -98,6 +99,60 @@ public:
 
 
 
+// CanvasResource
+// --------------
+
+class CanvasResource
+  : public MicroWebServer::Resource
+{
+  Screen &screen_;
+  Canvas &canvas_;
+
+  class GetRequestHandler
+    : public httpd::RequestHandler
+  {
+    std::future< std::string > content_;
+
+  public:
+    GetRequestHandler ( std::future< std::string > content )
+      : content_( std::move( content ) )
+    {}
+
+    bool operator() ( httpd::Connection connection, const char *uploadData, size_t *uploadDataSize ) override
+    {
+      content_.wait();
+      return connection.queue( httpd::StatusCode::Ok, httpd::Response::makeContentResponse( "image/png", content_.get() ) );
+    }
+  };
+
+public:
+  explicit CanvasResource ( Screen &screen, Canvas &canvas )
+    : screen_( screen ), canvas_( canvas )
+  {}
+
+  std::unique_ptr< httpd::RequestHandler > getGetHandler ( httpd::Connection connection ) const override
+  {
+    std::promise< std::string > promise;
+
+    std::future< std::string > future = promise.get_future();
+    screen_.pushLambdaEvent( [ this, p( std::move( promise ) ) ] () mutable -> bool {
+        std::ostringstream content;
+        canvas_.save( content );
+        p.set_value( content.str() );
+        return false;
+      } );
+
+    return std::make_unique< GetRequestHandler >( std::move( future ) );
+  }
+
+  std::unique_ptr< httpd::RequestHandler > getHeadHandler ( httpd::Connection connection ) const override
+  {
+    return httpd::makeContentRequestHandler( "image/png" );
+  }
+};
+
+
+
 // EditResource
 // ------------
 
@@ -123,15 +178,11 @@ public:
     if( !snapShots_.exists( timeStamp ) )
       return httpd::makeNotFoundRequestHandler();
 
-    SDL_Event event;
-    SDL_memset( &event, 0, sizeof( event ) );
-    event.type = screen_.lambdaEvent;
-    event.user.data1 = new std::function< bool () >( [ this, timeStamp ] () -> bool {
+    screen_.pushLambdaEvent( [ this, timeStamp ] () -> bool {
         //canvas.load( snapShots.toFileName( timeStamp ) );
         canvas_.blit( 0, 0, Texture( screen_, snapShots_.toFileName( timeStamp ) ) );
         return true;
       } );
-    SDL_PushEvent( &event );
 
     std::ostringstream content;
     content << "<html>" << std::endl;
@@ -176,8 +227,9 @@ int main ( int argc, char **argv )
 
   auto webRoot = std::make_shared< MicroWebServer::MapResource >();
 
-  webRoot->add( "/", std::make_shared< MicroWebServer::RedirectResource >( "gallery" ) );
-  webRoot->add( "/gallery", std::make_shared< GalleryResource >( snapShots ) );
+  webRoot->add( "/", std::make_shared< MicroWebServer::RedirectResource >( "gallery.html" ) );
+  webRoot->add( "/gallery.html", std::make_shared< GalleryResource >( snapShots ) );
+  webRoot->add( "/canvas.png", std::make_shared< CanvasResource >( screen, canvas ) );
   webRoot->add( "/snapshots", std::make_shared< SnapShotsResource >( snapShots ) );
   webRoot->add( "/edit", std::make_shared< EditResource >( snapShots, screen, canvas ) );
   webRoot->add( "/palette.png", std::make_shared< MicroWebServer::StaticDataResource >( palette_data, palette_size, "image/png" ) );
